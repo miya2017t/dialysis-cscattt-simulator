@@ -1,187 +1,226 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>透析室防災 CSCATTT 訓練</title>
-
-  <!-- React CDN -->
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Lucide CDN -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+<meta charset="UTF-8" />
+<title>透析室防災 CSCATTT 訓練</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #0f172a;
+  color: #e5e7eb;
+}
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: bold;
+}
+.hidden { display: none; }
+.card {
+  background: #111827;
+  border-radius: 16px;
+  padding: 20px;
+  margin: 16px auto;
+  max-width: 720px;
+}
+textarea {
+  width: 100%;
+  min-height: 140px;
+  border-radius: 12px;
+  border: none;
+  padding: 12px;
+  font-size: 14px;
+}
+.progress {
+  height: 6px;
+  background: #1e293b;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.progress > div {
+  height: 100%;
+  background: #3b82f6;
+}
+.small { font-size: 12px; color: #94a3b8; }
+</style>
 </head>
 
-<body class="bg-slate-900">
-  <div id="root"></div>
+<body>
 
-<script type="text/babel">
-const { useState } = React;
+<div id="app"></div>
 
-/* ---------------- データ ---------------- */
+<script>
+/* ====== データ ====== */
 
-const baseSituations = {
-  fire: { label: "火災", icons: ["flame"] },
-  earthquake: { label: "地震", icons: ["zap"] },
-  flood: { label: "水害", icons: ["waves"] }
-};
+const situations = [
+  { id: "fire", label: "火災" },
+  { id: "earthquake", label: "地震" },
+  { id: "flood", label: "水害" }
+];
 
-const combinedSituations = [
-  { id: "fire-earthquake", types: ["fire","earthquake"] },
-  { id: "earthquake-flood", types: ["earthquake","flood"] },
-  { id: "fire-flood", types: ["fire","flood"] }
+const roles = [
+  "センター長","フロア責任者","主任","副主任","技士","その他"
 ];
 
 const scenario = [
-  { id:"Command", title:"Command" },
-  { id:"Safety", title:"Safety" },
-  { id:"Communication", title:"Communication" },
-  { id:"Assessment", title:"Assessment" },
-  { id:"Triage", title:"Triage" },
-  { id:"Treatment", title:"Treatment" },
-  { id:"Transport", title:"Transport" }
+  { id:"Command", title:"Command（指揮・統制）", intent:"指揮系統を明確にする" },
+  { id:"Safety", title:"Safety（安全確保）", intent:"自身と現場の安全確認" },
+  { id:"Communication", title:"Communication（情報伝達）", intent:"必要な情報を正確に伝える" },
+  { id:"Assessment", title:"Assessment（評価）", intent:"被害と状況を把握する" },
+  { id:"Triage", title:"Triage（トリアージ）", intent:"優先順位を決める" },
+  { id:"Treatment", title:"Treatment（応急処置）", intent:"最低限の処置を行う" },
+  { id:"Transport", title:"Transport（搬送）", intent:"安全な場所へ移動させる" }
 ];
 
-/* ---------------- App ---------------- */
+/* ====== 状態 ====== */
 
-function App() {
-  const [step, setStep] = useState("start");
-  const [situation, setSituation] = useState(null);
-  const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [input, setInput] = useState("");
-  const [hintsUsed, setHintsUsed] = useState(0);
-  const [hintHistory, setHintHistory] = useState([]);
-  const [showHint, setShowHint] = useState(false);
-  const [copyStatus, setCopyStatus] = useState("コピーする");
+let step = "landing";
+let selectedSituations = [];
+let role = "";
+let index = 0;
+let answers = {};
+let hintsUsed = 0;
+let showHint = false;
+let copyStatus = "コピーする";
 
-  /* ---- ランダム（必ず複合） ---- */
-  const randomSituation = () => {
-    const r = combinedSituations[Math.floor(Math.random()*combinedSituations.length)];
-    setSituation(r);
-    setStep("sim");
-  };
+/* ====== ユーティリティ ====== */
 
-  /* ---- 次へ ---- */
-  const next = () => {
-    setAnswers({...answers, [scenario[index].id]: input});
-    setInput("");
-    setShowHint(false);
-    if(index < scenario.length-1) setIndex(index+1);
-    else setStep("result");
-  };
+const app = document.getElementById("app");
 
-  /* ---- コピー ---- */
-  const copy = async () => {
-    let text = "【思考ログ】\n";
-    scenario.forEach(s=>{
-      text += `■${s.title}\n${answers[s.id] || ""}\n\n`;
-    });
-    await navigator.clipboard.writeText(text);
-    setCopyStatus("✅ コピーしました");
-    setTimeout(()=>setCopyStatus("コピーする"),2000);
-  };
-
-  /* ---------------- 表示 ---------------- */
-
-  if(step==="start"){
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-white space-y-6">
-        <h1 className="text-3xl font-bold">透析室防災 CSCATTT</h1>
-        <button onClick={randomSituation}
-          className="px-6 py-4 bg-blue-600 rounded-xl font-bold">
-          ランダム（複合災害）で始める
-        </button>
-      </div>
-    );
-  }
-
-  if(step==="sim"){
-    const s = scenario[index];
-    return (
-      <div className="min-h-screen bg-slate-50 p-6">
-        <div className="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow space-y-4">
-          <div className="flex gap-2">
-            {situation.types.map(t =>
-              baseSituations[t].icons.map(i =>
-                <i data-lucide={i} key={t+i}></i>
-              )
-            )}
-            <span className="font-bold">
-              {situation.types.map(t=>baseSituations[t].label).join("＋")}
-            </span>
-          </div>
-
-          <h2 className="text-xl font-bold">{s.title}</h2>
-
-          {!showHint ? (
-            <button
-              disabled={hintsUsed>=2}
-              onClick={()=>{
-                setShowHint(true);
-                setHintsUsed(hintsUsed+1);
-                setHintHistory([...hintHistory, s.title]);
-              }}
-              className={`w-full py-2 rounded ${
-                hintsUsed<2 ? "bg-amber-200" : "bg-slate-200 text-slate-400"
-              }`}
-            >
-              ヒントを使う（残り {2-hintsUsed} 回）
-            </button>
-          ) : (
-            <div className="bg-amber-50 p-3 rounded text-sm">
-              ※ 思考を一段深くする視点を意識してください
-            </div>
-          )}
-
-          <textarea
-            value={input}
-            onChange={e=>setInput(e.target.value)}
-            className="w-full min-h-[150px] border p-3 rounded"
-            placeholder="今考えることを書いてください"
-          />
-
-          <button onClick={next}
-            className="w-full py-3 bg-blue-600 text-white rounded font-bold">
-            次へ
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if(step==="result"){
-    return (
-      <div className="min-h-screen bg-slate-50 p-6">
-        <div className="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow space-y-4">
-          <h2 className="text-xl font-bold">完了</h2>
-
-          <p className="text-sm text-slate-500">
-            ヒント使用：{hintHistory.join(" / ") || "未使用"}
-          </p>
-
-          <button onClick={copy}
-            className={`px-6 py-3 rounded text-white font-bold
-              ${copyStatus!=="コピーする" ? "bg-green-600" : "bg-blue-600"}`}>
-            {copyStatus}
-          </button>
-
-          <button onClick={()=>location.reload()}
-            className="block text-sm text-slate-400 mt-4">
-            最初からやり直す
-          </button>
-        </div>
-      </div>
-    );
-  }
+function render(html) {
+  app.innerHTML = html;
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-lucide.createIcons();
+function situationLabel() {
+  return selectedSituations.map(s => s.label).join("＋");
+}
+
+/* ====== ログ生成 ====== */
+
+function buildLog() {
+  const now = new Date().toLocaleString("ja-JP");
+  let log = `【透析室災害シミュレーション・思考ログ】\n`;
+  log += `実施日時：${now}\n`;
+  log += `状況：${situationLabel()} / 役割：${role}\n`;
+  log += `----------------------------------\n`;
+  scenario.forEach(s=>{
+    log += `■ ${s.title}\n`;
+    log += `思考：${answers[s.id] || "(未入力)"}\n\n`;
+  });
+  log += `----------------------------------\n\n`;
+  log += `【AIへのフィードバック依頼プロンプト】\n`;
+  log += `あなたは採点者・審査員・評価者ではありません。\n`;
+  log += `この訓練は正解探しではなく、思考過程の整理が目的です。\n\n`;
+  log += `禁止事項：点数化・良否判定・模範解答提示\n\n`;
+  log += `役割：思考を映す鏡として、視点・気づき・問いを提示してください。\n\n`;
+  scenario.forEach(s=>{
+    log += `[${s.id}] ${answers[s.id]}\n`;
+  });
+  return log;
+}
+
+/* ====== 画面 ====== */
+
+function landing() {
+  render(`
+    <div class="card">
+      <h1>透析室防災 CSCATTT 訓練</h1>
+      <p class="small">思考を言語化し、AIと対話する防災訓練</p>
+      <button onclick="step='situation'; draw()">開始</button>
+    </div>
+  `);
+}
+
+function selectSituation() {
+  render(`
+    <div class="card">
+      <h2>災害状況を選択</h2>
+      ${situations.map(s=>`
+        <button onclick="selectedSituations=[${JSON.stringify(s)}]; draw()">${s.label}</button>
+      `).join("<br><br>")}
+      <br><br>
+      <button onclick="randomSituation()">ランダム（複合あり）</button>
+      <br><br>
+      <button onclick="step='role'; draw()" ${selectedSituations.length===0?"disabled":""}>次へ</button>
+    </div>
+  `);
+}
+
+function randomSituation() {
+  const shuffled = [...situations].sort(()=>0.5-Math.random());
+  selectedSituations = shuffled.slice(0, Math.random()<0.6 ? 2 : 1);
+  draw();
+}
+
+function selectRole() {
+  render(`
+    <div class="card">
+      <h2>${situationLabel()} シナリオ</h2>
+      <h3>あなたの役割</h3>
+      ${roles.map(r=>`
+        <button onclick="role='${r}'; step='sim'; draw()">${r}</button>
+      `).join("<br><br>")}
+    </div>
+  `);
+}
+
+function simulation() {
+  const s = scenario[index];
+  const progress = ((index+1)/scenario.length)*100;
+  render(`
+    <div class="card">
+      <div class="progress"><div style="width:${progress}%"></div></div>
+      <h3>${s.title}</h3>
+      <p class="small">${s.intent}</p>
+      <textarea id="input">${answers[s.id]||""}</textarea>
+      <br><br>
+      <button onclick="next()">次へ</button>
+    </div>
+  `);
+}
+
+function next() {
+  const val = document.getElementById("input").value;
+  answers[scenario[index].id] = val;
+  index++;
+  if(index>=scenario.length){
+    step="result";
+  }
+  draw();
+}
+
+function result() {
+  render(`
+    <div class="card">
+      <h2>完了</h2>
+      <button onclick="copy()">ログをコピー</button>
+      <p id="status">${copyStatus}</p>
+      <pre class="small">${buildLog()}</pre>
+    </div>
+  `);
+}
+
+function copy() {
+  navigator.clipboard.writeText(buildLog());
+  copyStatus = "コピー完了！";
+  draw();
+}
+
+/* ====== ルーティング ====== */
+
+function draw() {
+  if(step==="landing") landing();
+  if(step==="situation") selectSituation();
+  if(step==="role") selectRole();
+  if(step==="sim") simulation();
+  if(step==="result") result();
+}
+
+draw();
 </script>
+
 </body>
 </html>
