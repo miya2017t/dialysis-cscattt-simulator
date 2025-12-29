@@ -1,233 +1,265 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>透析室防災CSCATTT訓練</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>透析室防災CSCATTT訓練シミュレーター</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .lucide { width: 1.5rem; height: 1.5rem; vertical-align: middle; }
+  </style>
 </head>
 <body>
-    <div id="root"></div>
+  <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-        // Lucideアイコンのコンポーネント化
-        const Icon = ({ name, className }) => {
-            const [icon, setIcon] = useState(null);
-            useEffect(() => {
-                if (window.lucide) {
-                    const iconNode = window.lucide.icons[name];
-                    if (iconNode) setIcon(window.lucide.createIcons());
-                }
-            }, [name]);
-            return <i data-lucide={name} className={className}></i>;
-        };
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
-        // メインコンポーネント
-        const App = () => {
-            const [step, setStep] = useState('landing');
-            const [situation, setSituation] = useState(null);
-            const [role, setRole] = useState('');
-            const [currentIndex, setCurrentIndex] = useState(0);
-            const [answers, setAnswers] = useState({});
-            const [currentInput, setCurrentInput] = useState('');
-            const [hintsUsed, setHintsUsed] = useState(0);
-            const [showHint, setShowHint] = useState(false);
-            const [copyStatus, setCopyStatus] = useState('コピーする');
+    // アイコン描画用ヘルパー
+    const Icon = ({ name, className = "" }) => {
+      useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
+      return <i data-lucide={name} className={className}></i>;
+    };
 
-            // --- Data ---
-            const situations = [
-                { id: 'fire', label: '火災', icon: 'flame', color: 'text-red-500', desc: '煙の広がりと熱、延焼の恐怖。避難経路の遮断が最大のリスクです。' },
-                { id: 'earthquake', label: '巨大地震', icon: 'zap', color: 'text-yellow-600', desc: '激しい揺れ、物品の散乱、ライフラインの停止。足元の危険が最大のリスクです。' },
-                { id: 'flood', label: '浸水・水害', icon: 'waves', color: 'text-blue-500', desc: '徐々に上がる水位。孤立の不安と、医療継続の限界が最大のリスクです。' }
-            ];
+    const App = () => {
+      const [step, setStep] = useState('landing');
+      const [situation, setSituation] = useState(null);
+      const [role, setRole] = useState('');
+      const [currentIndex, setCurrentIndex] = useState(0);
+      const [answers, setAnswers] = useState({});
+      const [currentInput, setCurrentInput] = useState('');
+      const [hintsUsed, setHintsUsed] = useState(0);
+      const [showHint, setShowHint] = useState(false);
+      const [copyStatus, setCopyStatus] = useState('コピーする');
 
-            const roles = [
-                { id: 'center-head', label: 'センター長', description: '全体統括・対外調整' },
-                { id: 'floor-leader', label: 'フロア責任者', description: '現場指揮・指示出し' },
-                { id: 'chief', label: '主任', description: '実務調整・リーダー補助' },
-                { id: 'sub-chief', label: '副主任', description: '動線確保・実務の要' },
-                { id: 'engineer', label: '技士', description: '機器安全・ME資産保護' },
-                { id: 'other', label: 'その他', description: 'サポート・一般スタッフ' }
-            ];
+      const situations = [
+        { id: 'fire', label: '火災', icon: 'flame', iconColor: 'text-red-500', desc: '煙の広がりと熱、延焼の恐怖。避難経路の遮断が最大のリスクです。' },
+        { id: 'earthquake', label: '巨大地震', icon: 'zap', iconColor: 'text-yellow-600', desc: '激しい揺れ、物品の散乱、ライフラインの停止。足元の危険が最大のリスクです。' },
+        { id: 'flood', label: '浸水・水害', icon: 'waves', iconColor: 'text-blue-500', desc: '徐々に上がる水位。孤立の不安と、医療継続の限界が最大のリスクです。' }
+      ];
 
-            const scenario = [
-                { id: 'Command', title: 'Command（指揮・統制）', icon: 'users', intent: '現場の混乱を抑え、情報の流れと判断の責任者を明確にするステップです。', context: '災害発生直後。周囲のスタッフや患者があなたの動きに注目し、不安が広がっています。' },
-                { id: 'Safety', title: 'Safety（安全確保）', icon: 'shield', intent: '自分自身の安全、スタッフの安全、そして現場の安全を確認するステップです。', context: 'あなたが倒れれば救える命も救えません。周囲に迫る目に見える危険、見えない危険を確認してください。' },
-                { id: 'Communication', title: 'Communication（情報伝達）', icon: 'message-square', intent: '必要な情報を、必要な相手へ、確実かつ簡潔に届けるためのステップです。', context: '騒音や混乱の中で、「誰に何を伝えたか」だけでなく「相手がどう受け取ったか」が重要になります。' },
-                { id: 'Assessment', title: 'Assessment（評価）', icon: 'activity', intent: '被害の大きさと、今すぐ対応が必要な対象の数を正確に把握するステップです。', context: '目の前の一人だけでなく、フロア全体を見渡し、起きている事象の全体像を描いてください。' },
-                { id: 'Triage', title: 'Triage（選別）', icon: 'alert-triangle', intent: '限られた資源で最大の効果を上げるため、対応の優先順位を決めるステップです。', context: '全員を同時には助けられない状況かもしれません。何を基準に「重み」をつけますか。' },
-                { id: 'Treatment', title: 'Treatment（応急処置）', icon: 'stethoscope', intent: '次の場所へ移動するために、最低限必要な医療処置を行うステップです。', context: '完璧な治療は不要です。「命をつなぐため」「移動させるため」に削ぎ落とした処置を考えます。' },
-                { id: 'Transport', title: 'Transport（搬送）', icon: 'send', intent: '今いる危険な場所から、より安全な場所へ患者を移動させるステップです。', context: '移動そのものがリスクになる患者もいます。目的地までの経路と手段、そのリスクを考慮してください。' }
-            ];
+      const roles = [
+        { id: 'center-head', label: 'センター長', description: '全体統括・対外調整' },
+        { id: 'floor-leader', label: 'フロア責任者', description: '現場指揮・指示出し' },
+        { id: 'chief', label: '主任', description: '実務調整・リーダー補助' },
+        { id: 'sub-chief', label: '副主任', description: '動線確保・実務の要' },
+        { id: 'engineer', label: '技士', description: '機器安全・ME資産保護' },
+        { id: 'other', label: 'その他', description: 'サポート・一般スタッフ' }
+      ];
 
-            const hintData = {
-                'fire': {
-                    'Command': { hint: ["現在のフロア責任者は誰か？", "指示が途切れた時、どこまで判断して良いか？"], point: "災害時は『役職』より『機能』が優先される" },
-                    'Safety': { hint: ["煙の高さは？（天井か、患者の顔か）", "空調で煙が流れ込む可能性は？"], point: "見えないCO（一酸化炭素）は評価されにくい" },
-                    'Communication': { hint: ["騒音で声が通らない時、どう伝えるか？", "患者への指示は短く限定しているか？"], point: "『伝えた』ではなく『伝わった』かが重要" },
-                    'Assessment': { hint: ["どの時点で『回路を犠牲にする』と決めるか？", "回路トラブルによる二次災害は？"], point: "血液汚染は避難動線を塞ぐ" },
-                    'Triage': { hint: ["『歩ける』患者の低血圧やふらつきは？", "誰を今すぐ、誰を支援付きで動かすか？"], point: "透析患者の歩行可能時間は短い" },
-                    'Treatment': { hint: ["省略してよい作業と、絶対にダメな作業は？", "回路クランプ・止血の優先順位は？"], point: "災害医療に完璧は不要、時間＝安全" },
-                    'Transport': { hint: ["階段移動に耐えられるか？", "途中で動けなくなった時の代替ルートは？"], point: "移動中に悪化する患者が最も危険" }
-                },
-                'earthquake': {
-                    'Command': { hint: ["全スタッフの安否を即座に確認できるか？", "余震が続く中での指揮系統はどうなる？"], point: "混乱期は誰が決定権を持つか明確にする" },
-                    'Safety': { hint: ["ガラス、棚、透析機の転倒の危険は？", "避難経路に障害物は落ちていないか？"], point: "上からの落下物、横からの移動物に注意" },
-                    'Communication': { hint: ["停電で電話が使えない場合の連絡手段は？", "外部（本部や他施設）との連携方法は？"], point: "アナログな情報伝達（メガホン、紙）を想定" },
-                    'Assessment': { hint: ["機器の破損状況と、透析継続の可否は？", "ライフライン（水・電気）の残量は？"], point: "インフラ停止時は治療継続が最大のリスク" },
-                    'Triage': { hint: ["重症者と、独歩可能者の仕分けは？", "パニック状態の患者への対応は？"], point: "精神的な動揺もトリアージの対象" },
-                    'Treatment': { hint: ["停電時の緊急離脱手順は徹底されているか？", "手動での返血は可能か？"], point: "電気がない前提での最小限の処置を" },
-                    'Transport': { hint: ["エレベーター停止時の階段搬送の人員は？", "屋外の安全地帯は確保されているか？"], point: "余震による二次災害を考慮した経路選定" }
-                },
-                'flood': {
-                    'Command': { hint: ["垂直避難か、広域搬送かの判断時期は？", "1階が死守できない場合の指揮所移動は？"], point: "最悪のシナリオを先読みして動く" },
-                    'Safety': { hint: ["電気設備への浸水による感電リスクは？", "孤立した場合の備蓄（食料・水）の場所は？"], point: "浸水した水は汚染されていると考える" },
-                    'Communication': { hint: ["救助要請のタイミングは明確か？", "患者家族への連絡はどうするか？"], point: "孤立を前提とした通信手段の確保" },
-                    'Assessment': { hint: ["浸水スピードの把握ができているか？", "2階以上のフロアに収容できる限界人数は？"], point: "時間経過とともに悪化する状況を予測" },
-                    'Triage': { hint: ["先に上階へ移すべき患者の条件は？", "移動手段（ボート等）の優先順位は？"], point: "体温低下（低体温症）のリスクも考慮" },
-                    'Treatment': { hint: ["衛生状態が悪化する中での感染防止は？", "医薬品の移動は済んでいるか？"], point: "限られた物資での延命を考える" },
-                    'Transport': { hint: ["暗い中での垂直避難のリスクは？", "搬送経路に水が溜まっていないか？"], point: "水の深さが膝を超えると移動は困難" }
-                }
-            };
+      const scenario = [
+        { id: 'Command', title: 'Command（指揮・統制）', icon: 'users', intent: '現場の混乱を抑え、情報の流れと判断の責任者を明確にするステップです。', context: '災害発生直後。周囲のスタッフや患者があなたの動きに注目し、不安が広がっています。' },
+        { id: 'Safety', title: 'Safety（安全確保）', icon: 'shield', intent: '自分自身の安全、スタッフの安全、そして現場の安全を確認するステップです。', context: 'あなたが倒れれば救える命も救えません。周囲に迫る目に見える危険、見えない危険を確認してください。' },
+        { id: 'Communication', title: 'Communication（情報伝達）', icon: 'message-square', intent: '必要な情報を、必要な相手へ、確実かつ簡潔に届けるためのステップです。', context: '騒音や混乱の中で、「誰に何を伝えたか」だけでなく「相手がどう受け取ったか」が重要になります。' },
+        { id: 'Assessment', title: 'Assessment（評価）', icon: 'activity', intent: '被害の大きさと、今すぐ対応が必要な対象の数を正確に把握するステップです。', context: '目の前の一人だけでなく、フロア全体を見渡し、起きている事象の全体像を描いてください。' },
+        { id: 'Triage', title: 'Triage（選別）', icon: 'alert-triangle', intent: '限られた資源で最大の効果を上げるため、対応の優先順位を決めるステップです。', context: '全員を同時には助けられない状況かもしれません。何を基準に「重み」をつけますか。' },
+        { id: 'Treatment', title: 'Treatment（応急処置）', icon: 'stethoscope', intent: '次の場所へ移動するために、最低限必要な医療処置を行うステップです。', context: '完璧な治療は不要です。「命をつなぐため」「移動させるため」に削ぎ落とした処置を考えます。' },
+        { id: 'Transport', title: 'Transport（搬送）', icon: 'send', intent: '今いる危険な場所から、より安全な場所へ患者を移動させるステップです。', context: '移動そのものがリスクになる患者もいます。目的地までの経路と手段、そのリスクを考慮してください。' }
+      ];
 
-            useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            }, [step, currentIndex, showHint]);
+      const hintData = {
+        'fire': {
+          'Command': { hint: ["現在のフロア責任者は誰か？", "指示が途切れた時、どこまで判断して良いか？"], point: "災害時は『役職』より『機能』が優先される" },
+          'Safety': { hint: ["煙の高さは？（天井か、患者の顔か）", "空調で煙が流れ込む可能性は？"], point: "見えないCO（一酸化炭素）は評価されにくい" },
+          'Communication': { hint: ["騒音で声が通らない時、どう伝えるか？", "患者への指示は短く限定しているか？"], point: "『伝えた』ではなく『伝わった』かが重要" },
+          'Assessment': { hint: ["どの時点で『回路を犠牲にする』と決めるか？", "回路トラブルによる二次災害は？"], point: "血液汚染は避難動線を塞ぐ" },
+          'Triage': { hint: ["『歩ける』患者の低血圧やふらつきは？", "誰を今すぐ、誰を支援付きで動かすか？"], point: "透析患者の歩行可能時間は短い" },
+          'Treatment': { hint: ["省略してよい作業と、絶対にダメな作業は？", "回路クランプ・止血の優先順位は？"], point: "災害医療に完璧は不要、時間＝安全" },
+          'Transport': { hint: ["階段移動に耐えられるか？", "途中で動けなくなった時の代替ルートは？"], point: "移動中に悪化する患者が最も危険" }
+        },
+        'earthquake': {
+          'Command': { hint: ["全スタッフの安否を即座に確認できるか？", "余震が続く中での指揮系統はどうなる？"], point: "混乱期は誰が決定権を持つか明確にする" },
+          'Safety': { hint: ["ガラス、棚、透析機の転倒の危険は？", "避難経路に障害物は落ちていないか？"], point: "上からの落下物、横からの移動物に注意" },
+          'Communication': { hint: ["停電で電話が使えない場合の連絡手段は？", "外部（本部や他施設）との連携方法は？"], point: "アナログな情報伝達（メガホン、紙）を想定" },
+          'Assessment': { hint: ["機器の破損状況と、透析継続の可否は？", "ライフライン（水・電気）の残量は？"], point: "インフラ停止時は治療継続が最大のリスク" },
+          'Triage': { hint: ["重症者と、独歩可能者の仕分けは？", "パニック状態の患者への対応は？"], point: "精神的な動揺もトリアージの対象" },
+          'Treatment': { hint: ["停電時の緊急離脱手順は徹底されているか？", "手動での返血は可能か？"], point: "電気がない前提での最小限の処置を" },
+          'Transport': { hint: ["エレベーター停止時の階段搬送の人員は？", "屋外の安全地帯は確保されているか？"], point: "余震による二次災害を考慮した経路選定" }
+        },
+        'flood': {
+            'Command': { hint: ["垂直避難か、広域搬送かの判断時期は？", "1階が死守できない場合の指揮所移動は？"], point: "最悪のシナリオを先読みして動く" },
+            'Safety': { hint: ["電気設備への浸水による感電リスクは？", "孤立した場合の備蓄（食料・水）の場所は？"], point: "浸水した水は汚染されていると考える" },
+            'Communication': { hint: ["救助要請のタイミングは明確か？", "患者家族への連絡はどうするか？"], point: "孤立を前提とした通信手段の確保" },
+            'Assessment': { hint: ["浸水スピードの把握ができているか？", "2階以上のフロアに収容できる限界人数は？"], point: "時間経過とともに悪化する状況を予測" },
+            'Triage': { hint: ["先に上階へ移すべき患者の条件は？", "移動手段（ボート等）の優先順位は？"], point: "体温低下（低体温症）のリスクも考慮" },
+            'Treatment': { hint: ["衛生状態が悪化する中での感染防止は？", "医薬品の移動は済んでいるか？"], point: "限られた物資での延命を考える" },
+            'Transport': { hint: ["暗い中での垂直避難のリスクは？", "搬送経路に水が溜まっていないか？"], point: "水の深さが膝を超えると移動は困難" }
+        }
+      };
 
-            const handleNext = () => {
-                setAnswers({ ...answers, [scenario[currentIndex].id]: { text: currentInput, hintUsed: showHint } });
-                setCurrentInput('');
-                setShowHint(false);
-                if (currentIndex < scenario.length - 1) {
-                    setCurrentIndex(currentIndex + 1);
-                } else {
-                    setStep('result');
-                }
-            };
+      const handleRandomSituation = () => {
+        const random = situations[Math.floor(Math.random() * situations.length)];
+        setSituation(random);
+      };
 
-            const getCombinedLog = () => {
-                let log = `【透析室災害シミュレーション・思考ログ】\n`;
-                log += `状況：${situation?.label} / 役割：${role}\n`;
-                log += `----------------------------------\n`;
-                scenario.forEach(s => {
-                    const ans = answers[s.id];
-                    log += `■ ${s.title}\n思考：${ans?.text || '(未入力)'}\n${ans?.hintUsed ? '（※ヒントを活用）' : ''}\n\n`;
-                });
-                return log;
-            };
+      const handleNext = () => {
+        setAnswers({ ...answers, [scenario[currentIndex].id]: { text: currentInput, hintUsed: showHint } });
+        setCurrentInput('');
+        setShowHint(false);
+        if (currentIndex < scenario.length - 1) {
+          setCurrentIndex(currentIndex + 1);
+        } else {
+          setStep('result');
+        }
+      };
 
-            const copyToClipboard = () => {
-                navigator.clipboard.writeText(getCombinedLog());
-                setCopyStatus('コピー完了！');
-                setTimeout(() => setCopyStatus('コピーする'), 2000);
-            };
+      const copyToClipboard = () => {
+        const now = new Date().toLocaleString('ja-JP');
+        let log = `【透析室災害シミュレーション・思考ログ】\n実施日時：${now}\n状況：${situation?.label} / 役割：${role}\n\n`;
+        log += `【AIへのフィードバック依頼プロンプト】\n(略: 前回のプロンプト内容を挿入...)\n\n`;
+        scenario.forEach(s => {
+          log += `■ ${s.title}\n思考：${answers[s.id]?.text || '(未入力)'}\n${answers[s.id]?.hintUsed ? '(ヒント活用)' : ''}\n\n`;
+        });
+        
+        navigator.clipboard.writeText(log).then(() => {
+          alert("コピーしました！AIに貼り付けてください。");
+          setCopyStatus('コピー完了！');
+          setTimeout(() => setCopyStatus('コピーする'), 2000);
+        });
+      };
 
-            if (step === 'landing') {
-                return (
-                    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center p-6 text-center">
-                        <div className="w-24 h-24 bg-blue-600 rounded-3xl flex items-center justify-center shadow-2xl mb-8 rotate-3">
-                            <Icon name="shield" className="w-12 h-12 text-white" />
-                        </div>
-                        <h1 className="text-3xl font-black mb-2">透析室防災<br /><span className="text-blue-500">CSCATTT</span> 訓練</h1>
-                        <p className="text-slate-400 mb-8">思考を整理し、AIと対話する研修ツール</p>
-                        <button onClick={() => setStep('situation-select')} className="w-full max-w-xs py-4 bg-blue-600 rounded-xl font-bold text-lg">訓練を始める</button>
-                    </div>
-                );
-            }
+      // --- Views ---
 
-            if (step === 'situation-select') {
-                return (
-                    <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center">
-                        <h2 className="text-2xl font-bold mb-6">災害状況の選択</h2>
-                        {situations.map(s => (
-                            <button key={s.id} onClick={() => {setSituation(s); setStep('role-select');}} className="w-full max-w-md bg-white p-4 mb-4 rounded-xl shadow border border-slate-200 flex items-center gap-4 text-left">
-                                <Icon name={s.icon} className={`w-8 h-8 ${s.color}`} />
-                                <div><div className="font-bold">{s.label}</div><div className="text-xs text-slate-500">{s.desc}</div></div>
-                            </button>
+      if (step === 'landing') {
+        return (
+          <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center p-6">
+            <div className="max-w-md w-full text-center space-y-8">
+              <div className="mx-auto w-24 h-24 bg-blue-600 rounded-3xl flex items-center justify-center shadow-2xl rotate-3">
+                <Icon name="shield" className="w-12 h-12 text-white" />
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-3xl font-black tracking-tight">透析室防災<br /><span className="text-blue-500">CSCATTT</span> 訓練</h1>
+                <p className="text-slate-400 font-medium">思考を整理し、AIと対話する研修ツール</p>
+              </div>
+              <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 text-left space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><Icon name="users" /></div>
+                  <div><p className="font-bold text-sm">自分の立場で考える</p></div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-purple-500/20 rounded-lg text-purple-400"><Icon name="message-square" /></div>
+                  <div><p className="font-bold text-sm">AIと振り返る</p></div>
+                </div>
+              </div>
+              <button onClick={() => setStep('situation-select')} className="w-full py-4 bg-blue-600 rounded-xl font-bold text-lg shadow-lg">訓練を始める</button>
+            </div>
+          </div>
+        );
+      }
+
+      if (step === 'situation-select') {
+        return (
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+            <div className="max-w-xl w-full bg-white rounded-2xl shadow-xl p-8 border border-slate-200">
+              <h1 className="text-2xl font-bold text-center mb-8">災害状況の選択</h1>
+              <div className="grid grid-cols-1 gap-4 mb-6">
+                {situations.map((s) => (
+                  <button key={s.id} onClick={() => setSituation(s)} className={`p-5 border-2 rounded-xl flex items-center gap-4 transition-all ${situation?.id === s.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100 hover:bg-slate-50'}`}>
+                    <div className={`p-3 rounded-lg ${situation?.id === s.id ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}><Icon name={s.icon} className={situation?.id === s.id ? "" : s.iconColor} /></div>
+                    <div className="text-left"><div className="font-bold text-slate-800">{s.label}</div><div className="text-xs text-slate-500">{s.desc}</div></div>
+                  </button>
+                ))}
+                {/* ★ランダムボタン復活★ */}
+                <button onClick={handleRandomSituation} className="p-4 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center gap-3 hover:bg-slate-50 text-slate-600">
+                  <Icon name="dices" /> <span className="font-bold">ランダムに決定する</span>
+                </button>
+              </div>
+              <button disabled={!situation} onClick={() => setStep('role-select')} className={`w-full py-4 rounded-xl font-bold ${situation ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-400'}`}>次へ：役割を選ぶ</button>
+            </div>
+          </div>
+        );
+      }
+
+      if (step === 'role-select') {
+        return (
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 text-center">
+            <div className="max-w-xl w-full bg-white rounded-2xl shadow-xl p-8">
+              <h1 className="text-2xl font-bold mb-8">あなたの役割は？</h1>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                {roles.map((r) => (
+                  <button key={r.id} onClick={() => { setRole(r.label); setStep('simulation'); }} className="p-4 border-2 border-slate-100 rounded-xl hover:border-blue-500 hover:bg-blue-50 text-left">
+                    <div className="font-bold text-slate-800">{r.label}</div>
+                    <div className="text-xs text-slate-500">{r.description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (step === 'simulation') {
+        const current = scenario[currentIndex];
+        const progress = ((currentIndex + 1) / scenario.length) * 100;
+        const hint = hintData[situation.id]?.[current.id];
+
+        return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center p-4">
+            <div className="max-w-2xl w-full mt-4">
+              <div className="w-full bg-slate-200 h-1.5 rounded-full mb-6 overflow-hidden">
+                <div className="bg-blue-600 h-full transition-all" style={{ width: `${progress}%` }}></div>
+              </div>
+              <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+                <div className="bg-slate-800 p-6 flex items-center gap-4 text-white">
+                  <div className="p-3 bg-blue-600 rounded-lg"><Icon name={current.icon} /></div>
+                  <div><h2 className="text-xl font-bold">{current.title}</h2></div>
+                </div>
+                <div className="p-8 space-y-6">
+                  <div className="bg-slate-50 border p-5 rounded-xl flex gap-3">
+                    <Icon name="book-open" className="text-blue-500" />
+                    <p className="text-sm font-medium">{current.intent}</p>
+                  </div>
+                  <p className="text-slate-600 text-sm italic"><Icon name="alert-triangle" className="inline w-4 h-4 mr-2 text-amber-500" />{current.context}</p>
+                  
+                  {/* ★ヒント表示の見た目完全再現★ */}
+                  {showHint ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+                      <h4 className="text-amber-800 font-bold text-xs mb-3 flex items-center gap-2"><Icon name="help-circle" className="w-4 h-4" /> 思考を深めるヒント</h4>
+                      <ul className="space-y-2 mb-4">
+                        {hint.hint.map((h, i) => (
+                          <li key={i} className="text-slate-700 text-sm bg-white p-3 rounded-lg border border-amber-100 shadow-sm italic">" {h} "</li>
                         ))}
+                      </ul>
+                      <div className="bg-amber-200/40 p-3 rounded-lg text-amber-900 text-[11px]">
+                        <span className="font-bold mr-1">💡 POINT:</span> {hint.point}
+                      </div>
                     </div>
-                );
-            }
+                  ) : (
+                    <button onClick={() => { setShowHint(true); setHintsUsed(hintsUsed + 1); }} className="w-full py-3 rounded-xl flex items-center justify-center gap-2 font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                      <Icon name="help-circle" /> ヒントを表示 (残り{Math.max(0, 2-hintsUsed)}回)
+                    </button>
+                  )}
 
-            if (step === 'role-select') {
-                return (
-                    <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center">
-                        <h2 className="text-2xl font-bold mb-6">あなたの役割は？</h2>
-                        <div className="grid grid-cols-1 gap-4 w-full max-w-md">
-                            {roles.map(r => (
-                                <button key={r.id} onClick={() => {setRole(r.label); setStep('simulation');}} className="bg-white p-4 rounded-xl shadow border border-slate-200 text-left">
-                                    <div className="font-bold">{r.label}</div>
-                                    <div className="text-xs text-slate-500">{r.description}</div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                );
-            }
+                  <textarea value={currentInput} onChange={(e) => setCurrentInput(e.target.value)} className="w-full p-5 border-2 rounded-xl h-40" placeholder={`${role}として考えることは...`} />
+                  <button onClick={handleNext} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl">次へ進む</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
 
-            if (step === 'simulation') {
-                const current = scenario[currentIndex];
-                const hint = hintData[situation.id][current.id];
-                return (
-                    <div className="min-h-screen bg-slate-50 p-4 flex flex-col items-center">
-                        <div className="w-full max-w-2xl bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-200">
-                            <div className="bg-slate-800 text-white p-6">
-                                <div className="text-xs text-blue-400 font-bold mb-1">STEP {currentIndex + 1} / 7</div>
-                                <h2 className="text-xl font-bold">{current.title}</h2>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                <div className="bg-blue-50 p-4 rounded-lg text-sm">{current.intent}</div>
-                                <p className="text-slate-600 italic text-sm">「{current.context}」</p>
-                                
-                                {showHint ? (
-                                    <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
-                                        <div className="font-bold text-xs text-amber-800 mb-2">ヒント：</div>
-                                        {hint.hint.map((h, i) => <div key={i} className="text-sm mb-1">・{h}</div>)}
-                                    </div>
-                                ) : (
-                                    <button onClick={() => {setShowHint(true); setHintsUsed(h => h+1)}} className="text-xs text-blue-600 underline">ヒントを表示</button>
-                                )}
+      if (step === 'result') {
+        return (
+          <div className="min-h-screen bg-slate-50 p-4 flex flex-col items-center">
+            <div className="max-w-2xl w-full bg-white p-8 rounded-2xl shadow-xl">
+              <h1 className="text-2xl font-bold text-center mb-8">シミュレーション完了</h1>
+              <button onClick={copyToClipboard} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold mb-4">{copyStatus}</button>
+              <button onClick={() => location.reload()} className="w-full py-4 bg-slate-200 rounded-xl font-bold">最初に戻る</button>
+            </div>
+          </div>
+        );
+      }
+    };
 
-                                <textarea 
-                                    className="w-full h-32 p-4 border rounded-xl" 
-                                    placeholder="ここに入力..."
-                                    value={currentInput}
-                                    onChange={(e) => setCurrentInput(e.target.value)}
-                                />
-                                <button onClick={handleNext} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold">
-                                    {currentIndex === 6 ? '結果を見る' : '次へ進む'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
-            if (step === 'result') {
-                return (
-                    <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center">
-                        <div className="w-full max-w-2xl bg-white p-8 rounded-2xl shadow-lg">
-                            <h2 className="text-2xl font-bold mb-4">訓練終了！</h2>
-                            <p className="mb-6 text-slate-600">お疲れ様でした。下のボタンで思考ログをコピーして、AIに貼り付けて対話してみましょう。</p>
-                            <button onClick={copyToClipboard} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold mb-4">{copyStatus}</button>
-                            <button onClick={() => location.reload()} className="w-full py-4 bg-slate-200 rounded-xl font-bold">最初からやり直す</button>
-                        </div>
-                    </div>
-                );
-            }
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>
